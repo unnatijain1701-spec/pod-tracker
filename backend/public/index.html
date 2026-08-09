@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POD Tracker</title>
+<style>
+  :root{
+    --bg:#f4f3f1;
+    --card:#ffffff;
+    --border:#e4e1dc;
+    --text:#2b2926;
+    --muted:#8a8681;
+    --accent:#2b6ca8;
+    --accent-dark:#1f4f7d;
+    --accent-light:#dcebf7;
+    --good:#3f7a4d;
+    --bad:#b3432b;
+    --radius:10px;
+    --shadow:0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:1180px;margin:0 auto;padding:20px 16px 60px;}
+  header.topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 0;margin-bottom:20px;border-bottom:1px solid var(--border);
+  }
+  header.topbar .brand{display:flex;align-items:center;gap:10px;}
+  header.topbar .brand .logo{
+    width:34px;height:34px;border-radius:8px;background:var(--accent);
+    color:#fff;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px;flex-shrink:0;
+  }
+  header.topbar .brand .brand-text{display:flex;flex-direction:column;line-height:1.25;}
+  header.topbar .brand h1{font-size:16px;margin:0;font-weight:600;}
+  header.topbar .brand span{font-size:11.5px;color:var(--muted);}
+  nav.tabs{
+    display:flex;gap:4px;margin-bottom:22px;border-bottom:1px solid var(--border);
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    background:none;border:none;padding:10px 14px;font-size:14px;color:var(--muted);
+    cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-weight:500;
+  }
+  nav.tabs button.active{color:var(--accent-dark);border-bottom-color:var(--accent);}
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px;margin-bottom:16px;box-shadow:var(--shadow);
+  }
+  h2.section-title{font-size:18px;margin:0 0 4px;}
+  p.section-sub{color:var(--muted);font-size:13px;margin:0 0 16px;}
+  select, input[type=text], input[type=number], input[type=date], textarea{
+    width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;
+    font-size:13.5px;background:#fff;color:var(--text);font-family:inherit;
+  }
+  label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  .field{margin-bottom:12px;text-align:left;}
+  button.btn{
+    background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:8px;
+    font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s;
+  }
+  button.btn:hover{background:var(--accent-dark);}
+  button.btn.secondary{background:var(--card);color:var(--accent-dark);border:1px solid var(--accent);}
+  button.btn.secondary:hover{background:var(--accent-light);}
+  button.btn.danger{background:var(--bad);}
+  button.btn.danger:hover{background:#8f3520;}
+  button.btn:disabled{opacity:.5;cursor:not-allowed;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+  tr:last-child td{border-bottom:none;}
+  .table-scroll{overflow-x:auto;}
+  .empty{color:var(--muted);font-size:13.5px;text-align:center;padding:30px 10px;}
+  .loading{color:var(--muted);font-size:13.5px;text-align:center;padding:30px 10px;}
+  .error-banner{background:#fbeae5;border:1px solid #f0c6b8;color:var(--bad);padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;}
+  .badge{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;}
+  .badge.upload{background:#e2f0e5;color:var(--good);}
+  .badge.pending{background:#fbeae5;color:var(--bad);}
+  .badge.submitted{background:var(--accent-light);color:var(--accent-dark);}
+  .badge.notsubmitted{background:#f1efec;color:var(--muted);}
+  .plant-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:16px;}
+  .plant-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+  .plant-card h3{margin:0 0 10px;font-size:14.5px;}
+  .plant-stat-row{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;color:var(--muted);}
+  .plant-stat-row b{color:var(--text);font-weight:600;}
+  .pct-bar{width:100%;background:var(--border);border-radius:6px;height:7px;overflow:hidden;margin-top:8px;}
+  .pct-bar-fill{height:100%;background:var(--good);}
+  .overall-banner{display:flex;flex-wrap:wrap;gap:24px;}
+  .overall-stat{}
+  .overall-stat .big{font-size:26px;font-weight:700;color:var(--accent-dark);}
+  .overall-stat .lbl{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:end;}
+  .filter-row .field{margin-bottom:0;min-width:140px;flex:1;}
+  .filter-row .field.narrow{min-width:110px;flex:0 0 auto;width:130px;}
+  .row-actions{display:flex;gap:6px;}
+  .row-actions button{
+    background:none;border:1px solid var(--border);padding:5px 10px;border-radius:6px;
+    font-size:11.5px;cursor:pointer;color:var(--muted);
+  }
+  .row-actions button:hover{border-color:var(--accent);color:var(--accent-dark);}
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;
+    padding:20px;z-index:50;
+  }
+  .modal{background:#fff;border-radius:var(--radius);padding:22px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;}
+  .modal h2{margin:0 0 16px;font-size:17px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .form-grid .full{grid-column:1/-1;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  .pagination{display:flex;justify-content:center;align-items:center;gap:12px;margin-top:14px;font-size:13px;color:var(--muted);}
+  .pagination button{background:none;border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;color:var(--text);}
+  .pagination button:disabled{opacity:.4;cursor:not-allowed;}
+  amount-cell{text-align:right;}
+  td.amount, th.amount{text-align:right;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const PLANTS = ["Rai","Jaipur","Bangalore","Mumbai","Hyderabad"];
+  const API = "";
+
+  async function api(path, options){
+    const res = await fetch(API + path, Object.assign({headers:{"Content-Type":"application/json"}}, options||{}));
+    if(!res.ok){
+      let msg = "Request failed";
+      try{ const body = await res.json(); msg = body.error || msg; }catch(e){}
+      throw new Error(msg);
+    }
+    if(res.status === 204) return null;
+    return res.json();
+  }
+
+  function el(tag, attrs, children){
+    const e = document.createElement(tag);
+    attrs = attrs || {};
+    Object.keys(attrs).forEach(k=>{
+      if(k === "class") e.className = attrs[k];
+      else if(k === "html") e.innerHTML = attrs[k];
+      else if(k.startsWith("on") && typeof attrs[k] === "function") e.addEventListener(k.slice(2), attrs[k]);
+      else e.setAttribute(k, attrs[k]);
+    });
+    (children||[]).forEach(c=>{
+      if(c === null || c === undefined) return;
+      if(typeof c === "string") e.appendChild(document.createTextNode(c));
+      else e.appendChild(c);
+    });
+    return e;
+  }
+
+  function showError(container, err){
+    container.appendChild(el("div", {class:"error-banner"}, ["Something went wrong: " + err.message]));
+  }
+
+  function fmtMoney(n){
+    return "₹" + Number(n||0).toLocaleString("en-IN", {maximumFractionDigits:0});
+  }
+  function fmtDate(s){
+    if(!s) return "";
+    const d = new Date(s + (s.length===10 ? "T00:00:00" : ""));
+    return d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"});
+  }
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+
+  let activeTab = "dashboard";
+
+  function render(){
+    const app = document.getElementById("app");
+    app.innerHTML = "";
+    app.appendChild(renderHeader());
+    app.appendChild(renderTabs());
+    const content = el("div", {id:"content"}, [el("div", {class:"loading"}, ["Loading…"])]);
+    app.appendChild(content);
+    renderContent(content);
+  }
+
+  function renderHeader(){
+    const header = el("header", {class:"topbar"}, []);
+    header.appendChild(el("div", {class:"brand"}, [
+      el("div", {class:"logo"}, ["PT"]),
+      el("div", {class:"brand-text"}, [
+        el("h1", {}, ["POD Tracker"]),
+        el("span", {}, ["Proof of Delivery status across all plants"])
+      ])
+    ]));
+    return header;
+  }
+
+  function renderTabs(){
+    const tabs = [
+      {key:"dashboard", label:"Dashboard"},
+      {key:"entry", label:"Data Entry"}
+    ];
+    const nav = el("nav", {class:"tabs"}, []);
+    tabs.forEach(t=>{
+      nav.appendChild(el("button", {
+        class: activeTab === t.key ? "active" : "",
+        onclick: ()=>{ activeTab = t.key; render(); }
+      }, [t.label]));
+    });
+    return nav;
+  }
+
+  function renderContent(content){
+    if(activeTab === "dashboard") loadDashboard(content);
+    else if(activeTab === "entry") loadDataEntry(content);
+  }
+
+  // ---------- DASHBOARD ----------
+  async function loadDashboard(content){
+    content.innerHTML = "";
+    let data;
+    try{
+      data = await api("/api/invoices/summary");
+    }catch(err){
+      showError(content, err);
+      return;
+    }
+
+    const overallCard = el("div", {class:"card"}, []);
+    overallCard.appendChild(el("h2", {class:"section-title"}, ["Overall Summary"]));
+    overallCard.appendChild(el("p", {class:"section-sub"}, ["Across all plants, live from current data."]));
+    const banner = el("div", {class:"overall-banner"}, []);
+    const stats = [
+      ["Total Invoices", data.overall.totalInvoices.toLocaleString("en-IN")],
+      ["POD Uploaded", data.overall.podUploaded.toLocaleString("en-IN") + " (" + data.overall.uploadPct + "%)"],
+      ["POD Pending", data.overall.podPending.toLocaleString("en-IN")],
+      ["Pending Value", fmtMoney(data.overall.pendingValue)],
+      ["Submission Rate", data.overall.submissionPct + "%"]
+    ];
+    stats.forEach(([lbl, val])=>{
+      banner.appendChild(el("div", {class:"overall-stat"}, [
+        el("div", {class:"big"}, [String(val)]),
+        el("div", {class:"lbl"}, [lbl])
+      ]));
+    });
+    overallCard.appendChild(banner);
+    content.appendChild(overallCard);
+
+    content.appendChild(el("h2", {class:"section-title", style:"margin:20px 0 4px;"}, ["By Plant"]));
+    const grid = el("div", {class:"plant-grid"}, []);
+    data.byPlant.forEach(p=>{
+      const card = el("div", {class:"plant-card"}, []);
+      card.appendChild(el("h3", {}, [p.plant]));
+      card.appendChild(el("div", {class:"plant-stat-row"}, ["Total Invoices", el("b", {}, [String(p.totalInvoices)])]));
+      card.appendChild(el("div", {class:"plant-stat-row"}, ["POD Uploaded", el("b", {}, [String(p.podUploaded)])]));
+      card.appendChild(el("div", {class:"plant-stat-row"}, ["POD Pending", el("b", {}, [String(p.podPending)])]));
+      card.appendChild(el("div", {class:"plant-stat-row"}, ["Pending Value", el("b", {}, [fmtMoney(p.pendingValue)])]));
+      card.appendChild(el("div", {class:"plant-stat-row"}, ["Submitted", el("b", {}, [p.submissionPct + "%"])]));
+      const bar = el("div", {class:"pct-bar"}, []);
+      bar.appendChild(el("div", {class:"pct-bar-fill", style:"width:"+p.uploadPct+"%"}));
+      card.appendChild(bar);
+      grid.appendChild(card);
+    });
+    content.appendChild(grid);
+  }
+
+  // ---------- DATA ENTRY ----------
+  let filters = { plant: "", status: "", q: "", from: "", to: "" };
+  let currentPage = 1;
+
+  async function loadDataEntry(content){
+    content.innerHTML = "";
+    const card = el("div", {class:"card"}, []);
+    card.appendChild(el("h2", {class:"section-title"}, ["Data Entry"]));
+    card.appendChild(el("p", {class:"section-sub"}, ["Add, edit, or remove invoice / POD records."]));
+
+    const filterRow = el("div", {class:"filter-row"}, []);
+
+    const plantField = el("div", {class:"field narrow"}, [el("label", {}, ["Plant"])]);
+    const plantSel = el("select", {}, [el("option", {value:""}, ["All Plants"])]);
+    PLANTS.forEach(p => plantSel.appendChild(el("option", {value:p, selected: p===filters.plant}, [p])));
+    plantSel.value = filters.plant;
+    plantSel.onchange = ()=>{ filters.plant = plantSel.value; currentPage = 1; loadTable(tableContainer); };
+    plantField.appendChild(plantSel);
+    filterRow.appendChild(plantField);
+
+    const statusField = el("div", {class:"field narrow"}, [el("label", {}, ["POD Status"])]);
+    const statusSel = el("select", {}, [
+      el("option", {value:""}, ["All Statuses"]),
+      el("option", {value:"UPLOAD"}, ["Uploaded"]),
+      el("option", {value:"PENDING"}, ["Pending"])
+    ]);
+    statusSel.value = filters.status;
+    statusSel.onchange = ()=>{ filters.status = statusSel.value; currentPage = 1; loadTable(tableContainer); };
+    statusField.appendChild(statusSel);
+    filterRow.appendChild(statusField);
+
+    const searchField = el("div", {class:"field"}, [el("label", {}, ["Search"])]);
+    const searchInput = el("input", {type:"text", placeholder:"Invoice #, customer, deliver to...", value: filters.q}, []);
+    let searchTimer;
+    searchInput.addEventListener("input", ()=>{
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(()=>{ filters.q = searchInput.value; currentPage = 1; loadTable(tableContainer); }, 350);
+    });
+    searchField.appendChild(searchInput);
+    filterRow.appendChild(searchField);
+
+    const addBtn = el("button", {class:"btn", onclick: ()=> openInvoiceModal(null, ()=> loadTable(tableContainer))}, ["+ Add Invoice"]);
+    const addWrap = el("div", {class:"field narrow", style:"display:flex;align-items:end;"}, [addBtn]);
+    filterRow.appendChild(addWrap);
+
+    card.appendChild(filterRow);
+    content.appendChild(card);
+
+    const tableContainer = el("div", {}, [el("div", {class:"loading"}, ["Loading…"])]);
+    content.appendChild(tableContainer);
+    loadTable(tableContainer);
+  }
+
+  async function loadTable(container){
+    container.innerHTML = "";
+    const params = new URLSearchParams();
+    if(filters.plant) params.set("plant", filters.plant);
+    if(filters.status) params.set("status", filters.status);
+    if(filters.q) params.set("q", filters.q);
+    if(filters.from) params.set("from", filters.from);
+    if(filters.to) params.set("to", filters.to);
+    params.set("page", currentPage);
+
+    let data;
+    try{
+      data = await api("/api/invoices?" + params.toString());
+    }catch(err){
+      showError(container, err);
+      return;
+    }
+
+    const card = el("div", {class:"card"}, []);
+    if(data.rows.length === 0){
+      card.appendChild(el("div", {class:"empty"}, ["No invoices found. Try adjusting filters or add a new one."]));
+      container.appendChild(card);
+      return;
+    }
+
+    const scroll = el("div", {class:"table-scroll"}, []);
+    const table = el("table", {}, []);
+    table.appendChild(el("thead", {}, [el("tr", {}, [
+      el("th", {}, ["Date"]),
+      el("th", {}, ["Invoice #"]),
+      el("th", {}, ["Customer"]),
+      el("th", {}, ["Deliver To"]),
+      el("th", {class:"amount"}, ["Amount"]),
+      el("th", {}, ["Plant"]),
+      el("th", {}, ["POD"]),
+      el("th", {}, ["Submitted"]),
+      el("th", {}, ["Actions"])
+    ])]));
+    const tbody = el("tbody", {}, []);
+    data.rows.forEach(inv=>{
+      const tr = el("tr", {}, []);
+      tr.appendChild(el("td", {}, [fmtDate(inv.invoice_date)]));
+      tr.appendChild(el("td", {}, [inv.invoice_number]));
+      tr.appendChild(el("td", {}, [inv.customer_name]));
+      tr.appendChild(el("td", {}, [inv.deliver_to || ""]));
+      tr.appendChild(el("td", {class:"amount"}, [fmtMoney(inv.amount)]));
+      tr.appendChild(el("td", {}, [inv.plant]));
+      tr.appendChild(el("td", {}, [el("span", {class:"badge " + (inv.pod_status === "UPLOAD" ? "upload" : "pending")}, [inv.pod_status === "UPLOAD" ? "Uploaded" : "Pending"])]));
+      tr.appendChild(el("td", {}, [el("span", {class:"badge " + (inv.submission_status === "Submitted" ? "submitted" : "notsubmitted")}, [inv.submission_status === "Submitted" ? "Submitted" : "Not Submitted"])]));
+      const actions = el("div", {class:"row-actions"}, []);
+      actions.appendChild(el("button", {onclick: ()=> openInvoiceModal(inv, ()=> loadTable(container))}, ["Edit"]));
+      actions.appendChild(el("button", {onclick: async ()=>{
+        if(confirm("Delete invoice " + inv.invoice_number + "?")){
+          try{
+            await api("/api/invoices/" + inv.id, {method:"DELETE"});
+            loadTable(container);
+          }catch(err){ alert(err.message); }
+        }
+      }}, ["Delete"]));
+      tr.appendChild(el("td", {}, [actions]));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    scroll.appendChild(table);
+    card.appendChild(scroll);
+
+    const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
+    const pagination = el("div", {class:"pagination"}, [
+      el("button", {disabled: currentPage <= 1, onclick: ()=>{ currentPage--; loadTable(container); }}, ["← Prev"]),
+      el("span", {}, ["Page " + currentPage + " of " + totalPages + " (" + data.total.toLocaleString("en-IN") + " total)"]),
+      el("button", {disabled: currentPage >= totalPages, onclick: ()=>{ currentPage++; loadTable(container); }}, ["Next →"])
+    ]);
+    card.appendChild(pagination);
+
+    container.appendChild(card);
+  }
+
+  function openInvoiceModal(existing, onSaved){
+    const overlay = el("div", {class:"modal-overlay", onclick: (e)=>{ if(e.target === overlay) overlay.remove(); }}, []);
+    const modal = el("div", {class:"modal"}, []);
+    modal.appendChild(el("h2", {}, [existing ? "Edit Invoice" : "Add Invoice"]));
+
+    const grid = el("div", {class:"form-grid"}, []);
+
+    function field(labelText, inputEl, full){
+      const f = el("div", {class:"field" + (full ? " full" : "")}, [el("label", {}, [labelText])]);
+      f.appendChild(inputEl);
+      return f;
+    }
+
+    const plantInput = el("select", {}, []);
+    PLANTS.forEach(p => plantInput.appendChild(el("option", {value:p}, [p])));
+    plantInput.value = existing ? existing.plant : PLANTS[0];
+
+    const dateInput = el("input", {type:"date"}, []);
+    dateInput.value = existing ? existing.invoice_date.slice(0,10) : todayStr();
+
+    const invNumInput = el("input", {type:"text"}, []);
+    invNumInput.value = existing ? existing.invoice_number : "";
+
+    const customerInput = el("input", {type:"text"}, []);
+    customerInput.value = existing ? existing.customer_name : "";
+
+    const deliverInput = el("input", {type:"text"}, []);
+    deliverInput.value = existing ? (existing.deliver_to || "") : "";
+
+    const amountInput = el("input", {type:"number", step:"0.01"}, []);
+    amountInput.value = existing ? existing.amount : "0";
+
+    const podStatusInput = el("select", {}, [
+      el("option", {value:"PENDING"}, ["Pending"]),
+      el("option", {value:"UPLOAD"}, ["Uploaded"])
+    ]);
+    podStatusInput.value = existing ? existing.pod_status : "PENDING";
+
+    const submissionInput = el("select", {}, [
+      el("option", {value:""}, ["Not Submitted"]),
+      el("option", {value:"Submitted"}, ["Submitted"])
+    ]);
+    submissionInput.value = existing ? (existing.submission_status || "") : "";
+
+    grid.appendChild(field("Plant", plantInput));
+    grid.appendChild(field("Date", dateInput));
+    grid.appendChild(field("Invoice Number", invNumInput));
+    grid.appendChild(field("Amount", amountInput));
+    grid.appendChild(field("Customer Name", customerInput, true));
+    grid.appendChild(field("Deliver To", deliverInput, true));
+    grid.appendChild(field("POD Status", podStatusInput));
+    grid.appendChild(field("Submission Status", submissionInput));
+
+    modal.appendChild(grid);
+
+    const actions = el("div", {class:"modal-actions"}, []);
+    actions.appendChild(el("button", {class:"btn secondary", onclick: ()=> overlay.remove()}, ["Cancel"]));
+    const saveBtn = el("button", {class:"btn", onclick: async ()=>{
+      const payload = {
+        plant: plantInput.value,
+        invoiceDate: dateInput.value,
+        invoiceNumber: invNumInput.value,
+        customerName: customerInput.value,
+        deliverTo: deliverInput.value,
+        amount: amountInput.value,
+        podStatus: podStatusInput.value,
+        submissionStatus: submissionInput.value
+      };
+      saveBtn.disabled = true;
+      try{
+        if(existing){
+          await api("/api/invoices/" + existing.id, {method:"PUT", body: JSON.stringify(payload)});
+        } else {
+          await api("/api/invoices", {method:"POST", body: JSON.stringify(payload)});
+        }
+        overlay.remove();
+        onSaved();
+      }catch(err){
+        alert(err.message);
+        saveBtn.disabled = false;
+      }
+    }}, ["Save"]);
+    actions.appendChild(saveBtn);
+    modal.appendChild(actions);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "pod-tracker",
+  "version": "1.0.0",
+  "description": "POD (Proof of Delivery) tracker — replaces the Excel POD tracking workflow",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "import": "node scripts/import-excel.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.12.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
