@@ -421,7 +421,7 @@
     const modal = el("div", {class:"modal"}, []);
     modal.appendChild(el("h2", {}, ["Paste Bulk Rows"]));
     modal.appendChild(el("p", {class:"section-sub"}, [
-      "Copy rows from Excel (one invoice per line, columns separated by Tab) in this order: Date, Invoice Number, Customer Name, Deliver To, Amount, POD Status, Submission Status. Deliver To, Amount, POD Status and Submission Status are optional."
+      "Copy rows directly from your Excel sheet (including the S No. column) and paste below. Expected column order: S No., Date, Invoice Number, Customer Name, Deliver To, Amount, POD Status, Submittion Status. S No. is ignored; Deliver To, Amount, POD Status and Submission Status are optional."
     ]));
 
     const grid = el("div", {class:"form-grid"}, []);
@@ -436,7 +436,7 @@
     grid.appendChild(field("Plant", plantInput));
     modal.appendChild(grid);
 
-    const textarea = el("textarea", {rows:"12", placeholder:"2026-08-10\tS/R/26-27/00123\tAcme Pvt Ltd\tAcme Warehouse\t1500\tPENDING\t"}, []);
+    const textarea = el("textarea", {rows:"12", placeholder:"1\t2026-08-10\tS/R/26-27/00123\tAcme Pvt Ltd\tAcme Warehouse\t1500\tPENDING\t"}, []);
     textarea.style.width = "100%";
     textarea.style.fontFamily = "monospace";
     modal.appendChild(field("Paste rows here", textarea, true));
@@ -453,13 +453,13 @@
       const rows = lines.map(line => {
         const cols = line.split("\t");
         return {
-          invoiceDate: (cols[0] || "").trim(),
-          invoiceNumber: (cols[1] || "").trim(),
-          customerName: (cols[2] || "").trim(),
-          deliverTo: (cols[3] || "").trim(),
-          amount: (cols[4] || "").trim(),
-          podStatus: (cols[5] || "").trim(),
-          submissionStatus: (cols[6] || "").trim()
+          invoiceDate: (cols[1] || "").trim(),
+          invoiceNumber: (cols[2] || "").trim(),
+          customerName: (cols[3] || "").trim(),
+          deliverTo: (cols[4] || "").trim(),
+          amount: (cols[5] || "").trim(),
+          podStatus: (cols[6] || "").trim(),
+          submissionStatus: (cols[7] || "").trim()
         };
       });
 
