@@ -92,10 +92,12 @@
   .plant-stat-row b{color:var(--text);font-weight:600;}
   .pct-bar{width:100%;background:var(--border);border-radius:6px;height:7px;overflow:hidden;margin-top:8px;}
   .pct-bar-fill{height:100%;background:var(--good);}
-  .overall-banner{display:flex;flex-wrap:wrap;gap:24px;}
-  .overall-stat{}
-  .overall-stat .big{font-size:26px;font-weight:700;color:var(--accent-dark);}
-  .overall-stat .lbl{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .overall-banner{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .overall-stat{padding:18px 20px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .overall-stat:last-child{border-right:none;}
+  .overall-stat .big{font-size:22px;font-weight:700;color:var(--accent-dark);display:block;margin-bottom:4px;}
+  .overall-stat .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  @media (max-width:820px){ .overall-stat{border-bottom:1px solid var(--border);} }
   .filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:end;}
   .filter-row .field{margin-bottom:0;min-width:140px;flex:1;}
   .filter-row .field.narrow{min-width:110px;flex:0 0 auto;width:130px;}
@@ -237,17 +239,19 @@
     overallCard.appendChild(el("p", {class:"section-sub"}, ["Across all plants, live from current data."]));
     const banner = el("div", {class:"overall-banner"}, []);
     const stats = [
-      ["Total Invoices", data.overall.totalInvoices.toLocaleString("en-IN")],
-      ["POD Uploaded", data.overall.podUploaded.toLocaleString("en-IN") + " (" + data.overall.uploadPct + "%)"],
-      ["POD Pending", data.overall.podPending.toLocaleString("en-IN")],
-      ["Pending Value", fmtMoney(data.overall.pendingValue)],
-      ["Submission Rate", data.overall.submissionPct + "%"]
+      ["Total Invoices", data.overall.totalInvoices.toLocaleString("en-IN"), null],
+      ["POD Uploaded", data.overall.podUploaded.toLocaleString("en-IN"), data.overall.uploadPct + "% of total"],
+      ["POD Pending", data.overall.podPending.toLocaleString("en-IN"), null],
+      ["Pending Value", fmtMoney(data.overall.pendingValue), null],
+      ["Submission Rate", data.overall.submissionPct + "%", null]
     ];
-    stats.forEach(([lbl, val])=>{
-      banner.appendChild(el("div", {class:"overall-stat"}, [
+    stats.forEach(([lbl, val, sub])=>{
+      const cell = el("div", {class:"overall-stat"}, [
         el("div", {class:"big"}, [String(val)]),
         el("div", {class:"lbl"}, [lbl])
-      ]));
+      ]);
+      if(sub) cell.appendChild(el("div", {class:"lbl", style:"margin-top:2px;text-transform:none;letter-spacing:0;"}, [sub]));
+      banner.appendChild(cell);
     });
     overallCard.appendChild(banner);
     content.appendChild(overallCard);
@@ -330,6 +334,10 @@
     const bulkBtn = el("button", {class:"btn secondary", onclick: ()=> openBulkModal(()=> loadTable(tableContainer))}, ["Paste Bulk Rows"]);
     const bulkWrap = el("div", {class:"field narrow", style:"display:flex;align-items:end;"}, [bulkBtn]);
     filterRow.appendChild(bulkWrap);
+
+    const deleteDateBtn = el("button", {class:"btn secondary", onclick: ()=> openDeleteByDateModal(()=> loadTable(tableContainer))}, ["Delete by Date"]);
+    const deleteDateWrap = el("div", {class:"field narrow", style:"display:flex;align-items:end;"}, [deleteDateBtn]);
+    filterRow.appendChild(deleteDateWrap);
 
     card.appendChild(filterRow);
     content.appendChild(card);
@@ -416,6 +424,77 @@
     container.appendChild(card);
   }
 
+  function openDeleteByDateModal(onDeleted){
+    const overlay = el("div", {class:"modal-overlay", onclick: (e)=>{ if(e.target === overlay) overlay.remove(); }}, []);
+    const modal = el("div", {class:"modal"}, []);
+    modal.appendChild(el("h2", {}, ["Delete by Date"]));
+    modal.appendChild(el("p", {class:"section-sub"}, [
+      "Deletes every invoice matching the exact date and plant selected. This cannot be undone — you'll see a count and be asked to confirm first."
+    ]));
+
+    const grid = el("div", {class:"form-grid"}, []);
+    function field(labelText, inputEl, full){
+      const f = el("div", {class:"field" + (full ? " full" : "")}, [el("label", {}, [labelText])]);
+      f.appendChild(inputEl);
+      return f;
+    }
+
+    const plantInput = el("select", {}, [el("option", {value:""}, ["All Plants"])]);
+    PLANTS.forEach(p => plantInput.appendChild(el("option", {value:p}, [p])));
+    grid.appendChild(field("Plant", plantInput));
+
+    const dateInput = el("input", {type:"date"}, []);
+    dateInput.value = todayStr();
+    grid.appendChild(field("Date", dateInput));
+
+    modal.appendChild(grid);
+
+    const resultBox = el("div", {}, []);
+    modal.appendChild(resultBox);
+
+    const actions = el("div", {class:"modal-actions"}, []);
+    actions.appendChild(el("button", {class:"btn secondary", onclick: ()=> overlay.remove()}, ["Cancel"]));
+
+    const previewBtn = el("button", {class:"btn secondary", onclick: async ()=>{
+      if(!dateInput.value){ alert("Pick a date"); return; }
+      const params = new URLSearchParams({ from: dateInput.value, to: dateInput.value, page: "1" });
+      if(plantInput.value) params.set("plant", plantInput.value);
+      try{
+        const data = await api("/api/invoices?" + params.toString());
+        resultBox.innerHTML = "";
+        resultBox.appendChild(el("p", {}, [
+          `${data.total} invoice(s) match ${dateInput.value}${plantInput.value ? " for " + plantInput.value : " across all plants"}.`
+        ]));
+        deleteBtn.disabled = data.total === 0;
+      }catch(err){
+        alert(err.message);
+      }
+    }}, ["Preview Count"]);
+    actions.appendChild(previewBtn);
+
+    const deleteBtn = el("button", {class:"btn", disabled: true, onclick: async ()=>{
+      if(!confirm(`Delete all matching invoices for ${dateInput.value}? This cannot be undone.`)) return;
+      deleteBtn.disabled = true;
+      try{
+        const result = await api("/api/invoices/by-date", {
+          method: "DELETE",
+          body: JSON.stringify({ date: dateInput.value, plant: plantInput.value || undefined })
+        });
+        resultBox.innerHTML = "";
+        resultBox.appendChild(el("p", {}, [`Deleted ${result.deleted} invoice(s).`]));
+        onDeleted();
+      }catch(err){
+        alert(err.message);
+        deleteBtn.disabled = false;
+      }
+    }}, ["Delete"]);
+    actions.appendChild(deleteBtn);
+
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  }
+
   function openBulkModal(onSaved){
     const overlay = el("div", {class:"modal-overlay", onclick: (e)=>{ if(e.target === overlay) overlay.remove(); }}, []);
     const modal = el("div", {class:"modal"}, []);
@@ -464,6 +543,7 @@
       });
 
       saveBtn.disabled = true;
+      saveBtn.textContent = "Importing…";
       try{
         const result = await api("/api/invoices/bulk", {
           method: "POST",
@@ -477,14 +557,38 @@
           const list = el("ul", {}, result.errors.slice(0,20).map(e => el("li", {}, [`Row ${e.row}: ${e.reason}`])));
           resultBox.appendChild(list);
         }
+        if(result.batchId){
+          const undoBtn = el("button", {class:"btn secondary", onclick: async ()=>{
+            if(!confirm(`Delete all ${result.inserted} rows from this import? This cannot be undone.`)) return;
+            undoBtn.disabled = true;
+            try{
+              await api("/api/invoices/bulk/" + result.batchId, {method:"DELETE"});
+              resultBox.appendChild(el("p", {}, ["This import has been removed."]));
+              undoBtn.remove();
+              onSaved();
+            }catch(err){
+              alert(err.message);
+              undoBtn.disabled = false;
+            }
+          }}, [`Undo this import (delete ${result.inserted} rows)`]);
+          resultBox.appendChild(undoBtn);
+        }
+        saveBtn.textContent = "Imported";
         onSaved();
       }catch(err){
         alert(err.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Import";
       }
-      saveBtn.disabled = false;
     }}, ["Import"]);
     actions.appendChild(saveBtn);
     modal.appendChild(actions);
+
+    textarea.addEventListener("input", ()=>{
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Import";
+      resultBox.innerHTML = "";
+    });
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);

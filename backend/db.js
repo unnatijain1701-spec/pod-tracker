@@ -23,11 +23,14 @@ async function init() {
       submission_status TEXT DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      batch_id UUID,
       UNIQUE (plant, invoice_number)
     );
   `);
+  await pool.query(`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS batch_id UUID;`);
   await pool.query(`CREATE INDEX IF NOT EXISTS invoices_plant_date_idx ON invoices (plant, invoice_date);`);
   await pool.query(`CREATE INDEX IF NOT EXISTS invoices_status_idx ON invoices (pod_status);`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS invoices_batch_id_idx ON invoices (batch_id);`);
 }
 
 module.exports = { pool, init, PLANTS };

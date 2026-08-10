@@ -145,6 +145,7 @@ app.post("/api/invoices/bulk", async (req, res) => {
   if (!plant || !isValidPlant(plant)) return res.status(400).json({ error: "valid plant is required" });
   if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows array is required" });
 
+  const batchId = require("crypto").randomUUID();
   let inserted = 0;
   let skipped = 0;
   const errors = [];
@@ -161,8 +162,8 @@ app.post("/api/invoices/bulk", async (req, res) => {
     }
     try {
       const { rowCount } = await pool.query(
-        `INSERT INTO invoices (plant, invoice_date, invoice_number, customer_name, deliver_to, amount, pod_status, submission_status, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
+        `INSERT INTO invoices (plant, invoice_date, invoice_number, customer_name, deliver_to, amount, pod_status, submission_status, updated_at, batch_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now(), $9)
          ON CONFLICT (plant, invoice_number) DO NOTHING`,
         [
           plant,
@@ -172,7 +173,8 @@ app.post("/api/invoices/bulk", async (req, res) => {
           String(r.deliverTo || "").trim(),
           Number(r.amount) || 0,
           normalizePodStatus(r.podStatus),
-          normalizeSubmissionStatus(r.submissionStatus)
+          normalizeSubmissionStatus(r.submissionStatus),
+          batchId
         ]
       );
       if (rowCount > 0) inserted++;
@@ -183,7 +185,27 @@ app.post("/api/invoices/bulk", async (req, res) => {
     }
   }
 
-  res.json({ inserted, skipped, errors });
+  res.json({ inserted, skipped, errors, batchId: inserted > 0 ? batchId : null });
+});
+
+app.delete("/api/invoices/bulk/:batchId", async (req, res) => {
+  const { rowCount } = await pool.query("DELETE FROM invoices WHERE batch_id = $1", [req.params.batchId]);
+  res.json({ deleted: rowCount });
+});
+
+app.delete("/api/invoices/by-date", async (req, res) => {
+  const { date, plant } = req.body;
+  if (!date) return res.status(400).json({ error: "date is required" });
+  if (plant && !isValidPlant(plant)) return res.status(400).json({ error: "invalid plant" });
+
+  const params = [date];
+  let where = "invoice_date = $1";
+  if (plant) {
+    params.push(plant);
+    where += ` AND plant = $${params.length}`;
+  }
+  const { rowCount } = await pool.query(`DELETE FROM invoices WHERE ${where}`, params);
+  res.json({ deleted: rowCount });
 });
 
 app.put("/api/invoices/:id", async (req, res) => {
