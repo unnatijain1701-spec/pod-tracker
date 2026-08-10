@@ -140,6 +140,52 @@ app.post("/api/invoices", async (req, res) => {
   }
 });
 
+app.post("/api/invoices/bulk", async (req, res) => {
+  const { plant, rows } = req.body;
+  if (!plant || !isValidPlant(plant)) return res.status(400).json({ error: "valid plant is required" });
+  if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: "rows array is required" });
+
+  let inserted = 0;
+  let skipped = 0;
+  const errors = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const invoiceDate = r.invoiceDate;
+    const invoiceNumber = String(r.invoiceNumber || "").trim();
+    const customerName = String(r.customerName || "").trim();
+    if (!invoiceDate || !invoiceNumber || !customerName) {
+      skipped++;
+      errors.push({ row: i + 1, reason: "missing date, invoice number, or customer name" });
+      continue;
+    }
+    try {
+      const { rowCount } = await pool.query(
+        `INSERT INTO invoices (plant, invoice_date, invoice_number, customer_name, deliver_to, amount, pod_status, submission_status, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
+         ON CONFLICT (plant, invoice_number) DO NOTHING`,
+        [
+          plant,
+          invoiceDate,
+          invoiceNumber,
+          customerName,
+          String(r.deliverTo || "").trim(),
+          Number(r.amount) || 0,
+          normalizePodStatus(r.podStatus),
+          normalizeSubmissionStatus(r.submissionStatus)
+        ]
+      );
+      if (rowCount > 0) inserted++;
+      else { skipped++; errors.push({ row: i + 1, reason: `duplicate invoice number ${invoiceNumber}` }); }
+    } catch (err) {
+      skipped++;
+      errors.push({ row: i + 1, reason: err.message });
+    }
+  }
+
+  res.json({ inserted, skipped, errors });
+});
+
 app.put("/api/invoices/:id", async (req, res) => {
   const { plant, invoiceDate, invoiceNumber, customerName, deliverTo, amount, podStatus, submissionStatus } = req.body;
   if (!plant || !isValidPlant(plant)) return res.status(400).json({ error: "valid plant is required" });

@@ -149,6 +149,7 @@
       if(k === "class") e.className = attrs[k];
       else if(k === "html") e.innerHTML = attrs[k];
       else if(k.startsWith("on") && typeof attrs[k] === "function") e.addEventListener(k.slice(2), attrs[k]);
+      else if(typeof attrs[k] === "boolean") { if(attrs[k]) e.setAttribute(k, ""); }
       else e.setAttribute(k, attrs[k]);
     });
     (children||[]).forEach(c=>{
@@ -300,6 +301,18 @@
     statusField.appendChild(statusSel);
     filterRow.appendChild(statusField);
 
+    const fromField = el("div", {class:"field narrow"}, [el("label", {}, ["From"])]);
+    const fromInput = el("input", {type:"date", value: filters.from}, []);
+    fromInput.onchange = ()=>{ filters.from = fromInput.value; currentPage = 1; loadTable(tableContainer); };
+    fromField.appendChild(fromInput);
+    filterRow.appendChild(fromField);
+
+    const toField = el("div", {class:"field narrow"}, [el("label", {}, ["To"])]);
+    const toInput = el("input", {type:"date", value: filters.to}, []);
+    toInput.onchange = ()=>{ filters.to = toInput.value; currentPage = 1; loadTable(tableContainer); };
+    toField.appendChild(toInput);
+    filterRow.appendChild(toField);
+
     const searchField = el("div", {class:"field"}, [el("label", {}, ["Search"])]);
     const searchInput = el("input", {type:"text", placeholder:"Invoice #, customer, deliver to...", value: filters.q}, []);
     let searchTimer;
@@ -313,6 +326,10 @@
     const addBtn = el("button", {class:"btn", onclick: ()=> openInvoiceModal(null, ()=> loadTable(tableContainer))}, ["+ Add Invoice"]);
     const addWrap = el("div", {class:"field narrow", style:"display:flex;align-items:end;"}, [addBtn]);
     filterRow.appendChild(addWrap);
+
+    const bulkBtn = el("button", {class:"btn secondary", onclick: ()=> openBulkModal(()=> loadTable(tableContainer))}, ["Paste Bulk Rows"]);
+    const bulkWrap = el("div", {class:"field narrow", style:"display:flex;align-items:end;"}, [bulkBtn]);
+    filterRow.appendChild(bulkWrap);
 
     card.appendChild(filterRow);
     content.appendChild(card);
@@ -397,6 +414,80 @@
     card.appendChild(pagination);
 
     container.appendChild(card);
+  }
+
+  function openBulkModal(onSaved){
+    const overlay = el("div", {class:"modal-overlay", onclick: (e)=>{ if(e.target === overlay) overlay.remove(); }}, []);
+    const modal = el("div", {class:"modal"}, []);
+    modal.appendChild(el("h2", {}, ["Paste Bulk Rows"]));
+    modal.appendChild(el("p", {class:"section-sub"}, [
+      "Copy rows from Excel (one invoice per line, columns separated by Tab) in this order: Date, Invoice Number, Customer Name, Deliver To, Amount, POD Status, Submission Status. Deliver To, Amount, POD Status and Submission Status are optional."
+    ]));
+
+    const grid = el("div", {class:"form-grid"}, []);
+    function field(labelText, inputEl, full){
+      const f = el("div", {class:"field" + (full ? " full" : "")}, [el("label", {}, [labelText])]);
+      f.appendChild(inputEl);
+      return f;
+    }
+
+    const plantInput = el("select", {}, []);
+    PLANTS.forEach(p => plantInput.appendChild(el("option", {value:p}, [p])));
+    grid.appendChild(field("Plant", plantInput));
+    modal.appendChild(grid);
+
+    const textarea = el("textarea", {rows:"12", placeholder:"2026-08-10\tS/R/26-27/00123\tAcme Pvt Ltd\tAcme Warehouse\t1500\tPENDING\t"}, []);
+    textarea.style.width = "100%";
+    textarea.style.fontFamily = "monospace";
+    modal.appendChild(field("Paste rows here", textarea, true));
+
+    const resultBox = el("div", {}, []);
+    modal.appendChild(resultBox);
+
+    const actions = el("div", {class:"modal-actions"}, []);
+    actions.appendChild(el("button", {class:"btn secondary", onclick: ()=> overlay.remove()}, ["Cancel"]));
+    const saveBtn = el("button", {class:"btn", onclick: async ()=>{
+      const lines = textarea.value.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+      if(lines.length === 0){ alert("Paste at least one row"); return; }
+
+      const rows = lines.map(line => {
+        const cols = line.split("\t");
+        return {
+          invoiceDate: (cols[0] || "").trim(),
+          invoiceNumber: (cols[1] || "").trim(),
+          customerName: (cols[2] || "").trim(),
+          deliverTo: (cols[3] || "").trim(),
+          amount: (cols[4] || "").trim(),
+          podStatus: (cols[5] || "").trim(),
+          submissionStatus: (cols[6] || "").trim()
+        };
+      });
+
+      saveBtn.disabled = true;
+      try{
+        const result = await api("/api/invoices/bulk", {
+          method: "POST",
+          body: JSON.stringify({ plant: plantInput.value, rows })
+        });
+        resultBox.innerHTML = "";
+        resultBox.appendChild(el("p", {}, [
+          `Inserted: ${result.inserted}, Skipped: ${result.skipped}`
+        ]));
+        if(result.errors && result.errors.length){
+          const list = el("ul", {}, result.errors.slice(0,20).map(e => el("li", {}, [`Row ${e.row}: ${e.reason}`])));
+          resultBox.appendChild(list);
+        }
+        onSaved();
+      }catch(err){
+        alert(err.message);
+      }
+      saveBtn.disabled = false;
+    }}, ["Import"]);
+    actions.appendChild(saveBtn);
+    modal.appendChild(actions);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
   }
 
   function openInvoiceModal(existing, onSaved){
