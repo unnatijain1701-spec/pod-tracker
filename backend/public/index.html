@@ -224,11 +224,42 @@
   }
 
   // ---------- DASHBOARD ----------
+  let selectedMonth = "";
+  const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  function fmtMonthLabel(m){
+    const [y, mo] = m.split("-");
+    return MONTH_NAMES[parseInt(mo,10)-1] + " " + y;
+  }
+
   async function loadDashboard(content){
+    content.innerHTML = "";
+
+    const monthRow = el("div", {class:"filter-row", style:"margin-bottom:16px;"}, []);
+    const monthField = el("div", {class:"field narrow"}, [el("label", {}, ["Month"])]);
+    const monthSel = el("select", {}, [el("option", {value:""}, ["All Time"])]);
+    monthField.appendChild(monthSel);
+    monthRow.appendChild(monthField);
+    content.appendChild(monthRow);
+
+    try{
+      const months = await api("/api/invoices/months");
+      months.forEach(m => monthSel.appendChild(el("option", {value:m, selected: m===selectedMonth}, [fmtMonthLabel(m)])));
+      monthSel.value = selectedMonth;
+    }catch(err){ /* month list is non-critical */ }
+
+    const dashBody = el("div", {}, []);
+    content.appendChild(dashBody);
+    monthSel.onchange = ()=>{ selectedMonth = monthSel.value; loadDashboardBody(dashBody); };
+
+    await loadDashboardBody(dashBody);
+  }
+
+  async function loadDashboardBody(content){
     content.innerHTML = "";
     let data;
     try{
-      data = await api("/api/invoices/summary");
+      const qs = selectedMonth ? ("?month=" + encodeURIComponent(selectedMonth)) : "";
+      data = await api("/api/invoices/summary" + qs);
     }catch(err){
       showError(content, err);
       return;
@@ -236,7 +267,7 @@
 
     const overallCard = el("div", {class:"card"}, []);
     overallCard.appendChild(el("h2", {class:"section-title"}, ["Overall Summary"]));
-    overallCard.appendChild(el("p", {class:"section-sub"}, ["Across all plants, live from current data."]));
+    overallCard.appendChild(el("p", {class:"section-sub"}, [selectedMonth ? ("Across all plants, for " + fmtMonthLabel(selectedMonth) + ".") : "Across all plants, live from current data."]));
     const banner = el("div", {class:"overall-banner"}, []);
     const stats = [
       ["Total Invoices", data.overall.totalInvoices.toLocaleString("en-IN"), null],

@@ -68,7 +68,25 @@ app.get("/api/invoices", async (req, res) => {
   res.json({ rows, total, page: pageNum, pageSize });
 });
 
+app.get("/api/invoices/months", async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT DISTINCT to_char(invoice_date, 'YYYY-MM') AS month
+    FROM invoices
+    ORDER BY month DESC
+  `);
+  res.json(rows.map(r => r.month));
+});
+
 app.get("/api/invoices/summary", async (req, res) => {
+  const { month } = req.query;
+  const params = [];
+  let where = "";
+  if (month) {
+    if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: "invalid month, expected YYYY-MM" });
+    params.push(month);
+    where = `WHERE to_char(invoice_date, 'YYYY-MM') = $1`;
+  }
+
   const { rows } = await pool.query(`
     SELECT
       plant,
@@ -78,8 +96,9 @@ app.get("/api/invoices/summary", async (req, res) => {
       COALESCE(SUM(amount) FILTER (WHERE pod_status = 'PENDING'), 0) AS pending_value,
       COUNT(*) FILTER (WHERE submission_status = 'Submitted')::int AS submitted_count
     FROM invoices
+    ${where}
     GROUP BY plant
-  `);
+  `, params);
   const byPlant = Object.fromEntries(rows.map(r => [r.plant, r]));
 
   const result = PLANTS.map(plant => {
